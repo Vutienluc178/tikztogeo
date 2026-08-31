@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TikZ → GeoGebra</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#152238; --panel2:#1b2b47; --border:#2a3b5c;
+    --text:#e8edf7; --muted:#9fb0cc; --accent:#4f8cff; --accent2:#37c78a;
+    --warn:#ffb454; --danger:#ff6767; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:linear-gradient(180deg,#0b1424,#0f1b2e 40%,#0f1b2e);
+    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+  }
+  header{
+    padding:14px 20px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:rgba(21,34,56,0.75); backdrop-filter:blur(6px);
+  }
+  header h1{font-size:17px; margin:0; font-weight:650; letter-spacing:.2px;}
+  header .sub{color:var(--muted); font-size:12.5px;}
+  header .badge{
+    margin-left:auto; font-size:11.5px; color:var(--muted); border:1px solid var(--border);
+    padding:3px 9px; border-radius:99px; background:var(--panel);
+  }
+  main{
+    flex:1; display:flex; gap:14px; padding:14px; min-height:0;
+  }
+  @media (max-width: 980px){ main{ flex-direction:column; } }
+
+  .col{ display:flex; flex-direction:column; gap:14px; min-height:0; }
+  .colLeft{ width:400px; flex-shrink:0; overflow-y:auto; padding-right:2px; }
+  @media (max-width: 980px){ .colLeft{ width:auto; } }
+  .colRight{ flex:1; min-width:0; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:14px; display:flex; flex-direction:column; gap:10px;
+  }
+  .card h2{ font-size:13px; margin:0; color:var(--text); display:flex; align-items:center; gap:8px; }
+  .card h2 .n{ background:var(--accent); color:#fff; width:19px; height:19px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+  .hint{ color:var(--muted); font-size:12px; line-height:1.5; }
+
+  textarea{
+    width:100%; background:#0c1626; color:#d7e2f4; border:1px solid var(--border); border-radius:8px;
+    font-family:var(--mono); font-size:12.5px; padding:10px; resize:vertical; line-height:1.5;
+  }
+  #tikzInput{ height:300px; }
+  #ggbCmds{ height:220px; }
+
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row label{ font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  input[type=number]{ width:64px; background:#0c1626; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 7px; font-size:12.5px; }
+  input[type=color]{ width:34px; height:26px; padding:0; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer; }
+  input[type=checkbox]{ accent-color:var(--accent); }
+  select{ background:#0c1626; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 7px; font-size:12.5px; }
+
+  button{
+    border:none; border-radius:8px; padding:9px 14px; font-size:12.5px; font-weight:600; cursor:pointer;
+    color:#fff; background:var(--accent); transition:filter .12s ease, transform .05s ease;
+  }
+  button:hover{ filter:brightness(1.12); }
+  button:active{ transform:translateY(1px); }
+  button.secondary{ background:var(--panel2); color:var(--text); border:1px solid var(--border); }
+  button.green{ background:var(--accent2); }
+  button.ghost{ background:transparent; color:var(--muted); border:1px solid var(--border); padding:5px 10px; font-weight:500; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+
+  #warnBox{
+    max-height:150px; overflow-y:auto; font-size:12px; color:var(--warn);
+    background:#241b0c; border:1px solid #4a3a15; border-radius:8px; padding:8px 10px; display:none; white-space:pre-wrap;
+  }
+  #warnBox.show{ display:block; }
+  #errBox{
+    max-height:120px; overflow-y:auto; font-size:12px; color:var(--danger);
+    background:#2a1414; border:1px solid #5a2323; border-radius:8px; padding:8px 10px; display:none; white-space:pre-wrap;
+  }
+  #errBox.show{ display:block; }
+  #okBox{
+    font-size:12px; color:var(--accent2); background:#0f2a20; border:1px solid #1f4d3c;
+    border-radius:8px; padding:8px 10px; display:none;
+  }
+  #okBox.show{ display:block; }
+
+  details{ border:1px solid var(--border); border-radius:8px; padding:8px 10px; background:#0c1626; }
+  details summary{ cursor:pointer; font-size:12.5px; color:var(--muted); }
+  details[open] summary{ margin-bottom:6px; color:var(--text); }
+  details .doc{ font-size:12px; color:var(--muted); line-height:1.7; }
+  details code{ background:#152238; padding:1px 5px; border-radius:4px; font-family:var(--mono); color:#9cd0ff; }
+
+  .ggbCard{ flex:1; display:flex; flex-direction:column; min-height:0; }
+  .ggbToolbar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #ggb-wrap{ flex:1; min-height:420px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:#fff; position:relative; }
+  #ggb-element{ width:100%; height:100%; }
+  #ggbLoading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:#0c1626; color:var(--muted); font-size:13px; flex-direction:column; gap:10px;
+  }
+  .spinner{ width:26px; height:26px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--accent); animation:spin 0.9s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  footer{ padding:8px 20px; color:var(--muted); font-size:11px; text-align:center; border-top:1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TikZ → GeoGebra</h1>
+  <span class="sub">Chuyển mã vẽ TikZ (LaTeX) sang hình vẽ GeoGebra động, vẽ tiếp và xuất PNG nền trong suốt</span>
+  <span class="badge" id="engineBadge">engine sẵn sàng</span>
+</header>
+
+<main>
+  <div class="col colLeft">
+
+    <div class="card">
+      <h2><span class="n">1</span> Mã TikZ (LaTeX)</h2>
+      <div class="hint">Dán nội dung bên trong <code>\begin{tikzpicture}...\end{tikzpicture}</code> (hoặc cả khối). Hỗ trợ <code>\coordinate</code>, <code>\draw/\fill/\filldraw</code> với <code>-- ++ + arc cycle</code>, cú pháp <code>tikz calc</code> (<code>!t!</code>, chiếu vuông góc), toạ độ cực, macro ký hiệu góc vuông kiểu <code>\def...!#1!...</code>, <code>\node</code>, đơn vị <code>pt/cm/mm</code>.</div>
+      <textarea id="tikzInput" spellcheck="false"></textarea>
+      <div class="row">
+        <button id="btnConvert">⚙ Chuyển đổi &amp; vẽ</button>
+        <button class="secondary" id="btnExample">Nạp ví dụ mẫu</button>
+        <button class="ghost" id="btnClearInput">Xoá</button>
+      </div>
+      <div id="warnBox"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span> Tuỳ chọn chuyển đổi</h2>
+      <div class="row">
+        <label>Màu mặc định 
+          <select id="optColor">
+            <option value="#000000" selected>Đen</option>
+            <option value="#ffffff">Trắng</option>
+            <option value="#ff0000">Đỏ</option>
+            <option value="#ccff00">Vàng chanh</option>
+            <option value="#00cc00">Xanh lá</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="optAutoColor"> Đổi màu tự động</label>
+        <label>Nét thường
+          <input type="number" id="optThickness" min="1" max="10" value="3">
+        </label>
+      </div>
+      <div class="row">
+        <label>Cỡ điểm <input type="number" id="optPointSize" min="1" max="20" value="5"></label>
+        <label>Cỡ chữ <select id="optLabelSize">
+          <option value="">Bình thường</option>
+          <option value="\large ">Lớn</option>
+          <option value="\Large ">Rất lớn</option>
+          <option value="\LARGE ">Khổng lồ</option>
+        </select></label>
+        <label>Màu chữ 
+          <select id="optTextColor">
+            <option value="auto">Giống màu nét</option>
+            <option value="#000000" selected>Đen</option>
+            <option value="#ffffff">Trắng</option>
+            <option value="#ff0000">Đỏ</option>
+            <option value="#ccff00">Vàng chanh</option>
+            <option value="#00cc00">Xanh lá</option>
+          </select>
+        </label>
+        <label>Khoảng cách nhãn
+          <input type="number" id="optLabelDist" min="0.05" max="2" step="0.01" value="0.32">
+        </label>
+      </div>
+      <div class="hint">Khoảng cách nhãn tính theo đơn vị hình (cm-tương-đương) — chỉnh nếu chữ cái đè lên điểm.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span> Lệnh GeoGebra (có thể sửa tay)</h2>
+      <div class="hint">Danh sách lệnh do bộ chuyển đổi sinh ra — bạn có thể sửa trực tiếp rồi bấm "Áp dụng lại" để chạy lại, không cần chuyển đổi từ đầu.</div>
+      <textarea id="ggbCmds" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="secondary" id="btnReapply">↻ Áp dụng lại vào GeoGebra</button>
+        <button class="ghost" id="btnCopyCmds">Sao chép</button>
+      </div>
+      <div id="errBox"></div>
+      <div id="okBox"></div>
+    </div>
+
+    <details>
+      <summary>Phạm vi hỗ trợ &amp; mẹo dùng</summary>
+      <div class="doc">
+        • <code>\coordinate (X) at (bt);</code> — biểu thức toán (<code>sqrt</code>, <code>*</code>, <code>/</code>, <code>^</code>) được giữ "sống" trong GeoGebra (kéo điểm gốc vẫn cập nhật).<br>
+        • Toạ độ cực <code>(góc:bán kính)</code>, và cú pháp <code>tikz calc</code>: <code>(A)!t!(B)</code> (nội suy), <code>(A)!(P)!(B)</code> (hình chiếu vuông góc P lên AB).<br>
+        • Đường vẽ: <code>--</code>, di chuyển bút <code>++()</code>/<code>+()</code>, <code>arc(đầu:cuối:bk)</code>, đóng <code>cycle</code> — dùng chung một trình đọc nên các nét gạch chéo nhỏ (ký hiệu hai đoạn bằng nhau) cũng được vẽ lại đúng.<br>
+        • Style: <code>dashed, dotted, thin, thick, ultra thick, ->,</code> tên màu cơ bản (red, blue, green, …).<br>
+        • <code>\fill (P) circle (1.5pt) node[above]{$P$};</code> → chấm điểm + nhãn đặt đúng hướng; bán kính lớn hơn ~3pt sẽ vẽ thành đường tròn thật.<br>
+        • Macro ký hiệu góc vuông tự phát hiện qua khuôn mẫu <code>\def...!#1!...!#1!...</code> (không cần đúng tên <code>\markrightangle</code>).<br>
+        • Những dòng không nhận diện được sẽ liệt kê trong khung cảnh báo — bạn có thể tự thêm lệnh GeoGebra tương ứng ở khung "Lệnh GeoGebra", hoặc vẽ tiếp trực tiếp bằng công cụ của GeoGebra bên phải.
+      </div>
+    </details>
+
+  </div>
+
+  <div class="col colRight">
+    <div class="card ggbCard">
+      <div class="ggbToolbar">
+        <label><input type="checkbox" id="optAxes"> Trục toạ độ</label>
+        <label><input type="checkbox" id="optGrid"> Lưới</label>
+        <label><input type="checkbox" id="optAlgebra"> Khung Đại số</label>
+        <span style="flex:1"></span>
+        <label>Tỉ lệ <input type="number" id="pngScale" min="1" max="10" step="0.5" value="4"></label>
+        <label>DPI <input type="number" id="pngDpi" min="72" max="1200" step="1" value="300"></label>
+        <label><input type="checkbox" id="pngTransparent" checked> Nền trong suốt</label>
+        <button class="green" id="btnExportPng">⬇ Xuất PNG</button>
+        <button class="secondary" id="btnFit">⤢ Canh khung hình</button>
+        <button class="ghost" id="btnResetGgb">Xoá hình</button>
+      </div>
+      <div id="ggb-wrap">
+        <div id="ggb-element"></div>
+        <div id="ggbLoading"><div class="spinner"></div>Đang tải GeoGebra…</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Vẽ tiếp bằng thanh công cụ GeoGebra ở góc trên bên trái của khung hình — nội dung chuyển từ TikZ vẫn là các đối tượng động, có thể kéo/chỉnh sau khi vẽ.</footer>
+
+<script src="https://www.geogebra.org/apps/deployggb.js"></script>
+<script>
+/* ============================================================
+   TikZ (tikzpicture, tikzlibrary calc) -> GeoGebra command engine
+   ============================================================ */
+var TikzToGgb = (function () {
+  'use strict';
+
+  var COLOR_MAP = {
+    black: [0, 0, 0], white: [255, 255, 255],
+    red: [214, 39, 40], blue: [31, 119, 180], green: [44, 160, 44],
+    gray: [127, 127, 127], grey: [127, 127, 127],
+    orange: [255, 127, 14], purple: [148, 103, 189], violet: [148, 103, 189],
+    cyan: [23, 190, 207], magenta: [214, 39, 148], brown: [140, 86, 75],
+    yellow: [188, 189, 34], olive: [128, 128, 0], teal: [0, 128, 128],
+    pink: [227, 119, 194], darkgray: [80, 80, 80], lightgray: [190, 190, 190]
+  };
+
+  function trimNum(n) {
+    if (!isFinite(n)) return '0';
+    if (Math.abs(n) < 1e-9) n = 0;
+    return (Math.round(n * 1e6) / 1e6).toString();
+  }
+
+  function evalMathExpr(str) {
+    str = (str || '').trim();
+    while (str.charAt(0) === '{' && str.charAt(str.length - 1) === '}') {
+      str = str.slice(1, -1).trim();
+    }
+    var i = 0;
+    function skipWs() { while (str[i] === ' ' || str[i] === '\t') i++; }
+    function parseExpr() {
+      skipWs();
+      var v = parseTerm();
+      for (;;) {
+        skipWs();
+        if (str[i] === '+') { i++; v += parseTerm(); }
+        else if (str[i] === '-') { i++; v -= parseTerm(); }
+        else break;
+      }
+      return v;
+    }
+    function parseTerm() {
+      skipWs();
+      var v = parseFactor();
+      for (;;) {
+        skipWs();
+        if (str[i] === '*') { i++; v *= parseFactor(); }
+        else if (str[i] === '/') { i++; v /= parseFactor(); }
+        else break;
+      }
+      return v;
+    }
+    function parseFactor() {
+      skipWs();
+      var v = parseUnary();
+      skipWs();
+      if (str[i] === '^') { i++; var e = parseFactor(); v = Math.pow(v, e); }
+      return v;
+    }
+    function parseUnary() {
+      skipWs();
+      if (str[i] === '-') { i++; return -parseUnary(); }
+      if (str[i] === '+') { i++; return parseUnary(); }
+      return parseAtom();
+    }
+    function parseAtom() {
+      skipWs();
+      if (str[i] === '(') {
+        i++; var v = parseExpr(); skipWs();
+        if (str[i] === ')') i++;
+        return v;
+      }
+      var m = /^[a-zA-Z]+/.exec(str.slice(i));
+      if (m) {
+        var name = m[0]; i += name.length; skipWs();
+        if (str[i] === '(') {
+          i++; var arg = parseExpr(); skipWs();
+          if (str[i] === ')') i++;
+          switch (name.toLowerCase()) {
+            case 'sqrt': return Math.sqrt(arg);
+            case 'sin': return Math.sin(arg * Math.PI / 180);
+            case 'cos': return Math.cos(arg * Math.PI / 180);
+            case 'tan': return Math.tan(arg * Math.PI / 180);
+            case 'abs': return Math.abs(arg);
+            default: return arg;
+          }
+        } else {
+          if (name.toLowerCase() === 'pi') return Math.PI;
+          return 0;
+        }
+      }
+      var numM = /^[0-9]*\.?[0-9]+/.exec(str.slice(i));
+      if (numM) {
+        i += numM[0].length;
+        var val = parseFloat(numM[0]);
+        var unitM = /^(pt|cm|mm)\b/i.exec(str.slice(i));
+        if (unitM) {
+          i += unitM[0].length;
+          var u = unitM[1].toLowerCase();
+          if (u === 'pt') val = val / 28.3465;
+          else if (u === 'mm') val = val / 10;
+        }
+        return val;
+      }
+      i++;
+      return 0;
+    }
+    if (!str) return 0;
+    return parseExpr();
+  }
+
+  function toGgbNumberExpr(str) {
+    var clean = (str || '').trim();
+    while (clean.charAt(0) === '{' && clean.charAt(clean.length - 1) === '}') {
+      clean = clean.slice(1, -1).trim();
+    }
+    if (clean === '') return '0';
+    if (/(pt|cm|mm)\b/i.test(clean)) return trimNum(evalMathExpr(clean));
+    if (/^[+-]?[0-9]*\.?[0-9]+$/.test(clean)) return clean;
+    if (/\b(sin|cos|tan)\s*\(/i.test(clean)) return trimNum(evalMathExpr(clean));
+    return clean;
+  }
+
+  function splitTopLevel(s, sep) {
+    var res = [], depth = 0, cur = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (c === '(' || c === '{') depth++;
+      if (c === ')' || c === '}') depth--;
+      if (c === sep && depth === 0) { res.push(cur); cur = ''; }
+      else cur += c;
+    }
+    res.push(cur);
+    return res.map(function (x) { return x.trim(); });
+  }
+
+  function splitTermsWithSign(s) {
+    var terms = [], depth = 0, cur = '', sign = 1;
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      if (c === '(' || c === '{') depth++;
+      if (c === ')' || c === '}') depth--;
+      if (depth === 0 && (c === '+' || c === '-')) {
+        if (cur.trim() !== '') terms.push({ sign: sign, text: cur.trim() });
+        sign = (c === '-') ? -1 : 1;
+        cur = '';
+      } else cur += c;
+    }
+    if (cur.trim() !== '') terms.push({ sign: sign, text: cur.trim() });
+    return terms;
+  }
+
+  function findMatchingParen(s, openIdx) {
+    var depth = 0;
+    for (var i = openIdx; i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      else if (s[i] === ')') { depth--; if (depth === 0) return i; }
+    }
+    return -1;
+  }
+
+  function evalPointAtom(s, ctx) {
+    s = s.trim();
+    if (s.charAt(0) === '(' && s.charAt(s.length - 1) === ')') s = s.slice(1, -1).trim();
+    var parts = splitTopLevel(s, ',');
+    if (parts.length === 1) {
+      var pparts = splitTopLevel(s, ':');
+      if (pparts.length === 2) {
+        var aExpr = toGgbNumberExpr(pparts[0]);
+        var rExpr = toGgbNumberExpr(pparts[1]);
+        var aNum = evalMathExpr(pparts[0]);
+        var rNum = evalMathExpr(pparts[1]);
+        return {
+          ggb: '(cos(' + aExpr + '°)*(' + rExpr + '),sin(' + aExpr + '°)*(' + rExpr + '))',
+          num: { x: Math.cos(aNum * Math.PI / 180) * rNum, y: Math.sin(aNum * Math.PI / 180) * rNum }
+        };
+      }
+      var name = s.trim();
+      if (ctx.points[name]) return ctx.points[name];
+      ctx.warnings.push('Không tìm thấy điểm "' + name + '", dùng (0,0) thay thế.');
+      return { ggb: '(0,0)', num: { x: 0, y: 0 } };
+    } else if (parts.length === 2) {
+      var xExpr = toGgbNumberExpr(parts[0]);
+      var yExpr = toGgbNumberExpr(parts[1]);
+      var xNum = evalMathExpr(parts[0]);
+      var yNum = evalMathExpr(parts[1]);
+      return { ggb: '(' + xExpr + ',' + yExpr + ')', num: { x: xNum, y: yNum } };
+    }
+    return { ggb: '(0,0)', num: { x: 0, y: 0 } };
+  }
+
+  function resolvePoint(text, ctx) {
+    text = text.trim();
+    if (text.charAt(0) === '(' && text.charAt(text.length - 1) === ')') {
+      var inner = text.slice(1, -1).trim();
+      if (inner.charAt(0) === '$' && inner.charAt(inner.length - 1) === '$') {
+        return evalCalcExpr(inner.slice(1, -1).trim(), ctx);
+      }
+      return evalPointAtom(text, ctx);
+    }
+    return evalPointAtom('(' + text + ')', ctx);
+  }
+
+  function projectNum(A, B, P) {
+    var bx = B.x - A.x, by = B.y - A.y;
+    var px = P.x - A.x, py = P.y - A.y;
+    var denom = bx * bx + by * by;
+    var t = denom === 0 ? 0 : (px * bx + py * by) / denom;
+    return { x: A.x + t * bx, y: A.y + t * by };
+  }
+
+  function evalCalcExpr(s, ctx) {
+    s = s.trim();
+    var bangParts = splitTopLevel(s, '!');
+    if (bangParts.length === 3) {
+      var A = resolvePoint(bangParts[0], ctx);
+      var B = resolvePoint(bangParts[2], ctx);
+      var midTrim = bangParts[1].trim();
+      if (midTrim.charAt(0) === '(') {
+        var P = resolvePoint(midTrim, ctx);
+        var ggb = '((' + A.ggb + ')+((((' + P.ggb + ')-(' + A.ggb + '))*((' + B.ggb + ')-(' + A.ggb + ')))/(((' +
+          B.ggb + ')-(' + A.ggb + '))*((' + B.ggb + ')-(' + A.ggb + '))))*((' + B.ggb + ')-(' + A.ggb + ')))';
+        return { ggb: ggb, num: projectNum(A.num, B.num, P.num) };
+      } else {
+        var tExpr = toGgbNumberExpr(midTrim);
+        var tNum = evalMathExpr(midTrim);
+        var ggb2 = '((' + A.ggb + ')+(' + tExpr + ')*((' + B.ggb + ')-(' + A.ggb + ')))';
+        return { ggb: ggb2, num: { x: A.num.x + tNum * (B.num.x - A.num.x), y: A.num.y + tNum * (B.num.y - A.num.y) } };
+      }
+    }
+    var terms = splitTermsWithSign(s);
+    if (terms.length === 0) return { ggb: '(0,0)', num: { x: 0, y: 0 } };
+    var acc = null;
+    for (var k = 0; k < terms.length; k++) {
+      var t = terms[k];
+      var v = resolvePoint(t.text, ctx);
+      if (acc === null) {
+        acc = t.sign > 0 ? v : { ggb: '(-(' + v.ggb + '))', num: { x: -v.num.x, y: -v.num.y } };
+      } else if (t.sign > 0) {
+        acc = { ggb: '((' + acc.ggb + ')+(' + v.ggb + '))', num: { x: acc.num.x + v.num.x, y: acc.num.y + v.num.y } };
+      } else {
+        acc = { ggb: '((' + acc.ggb + ')-(' + v.ggb + '))', num: { x: acc.num.x - v.num.x, y: acc.num.y - v.num.y } };
+      }
+    }
+    return acc;
+  }
+
+  function tokenizePath(pathText) {
+    var toks = [];
+    var i = 0, n = pathText.length;
+    while (i < n) {
+      var c = pathText[i];
+      if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
+      if (pathText.substr(i, 2) === '--') { toks.push({ t: 'op', v: '--' }); i += 2; continue; }
+      if (pathText.substr(i, 2) === '++') { toks.push({ t: 'op', v: '++' }); i += 2; continue; }
+      if (c === '+') { toks.push({ t: 'op', v: '+' }); i++; continue; }
+      if (/^cycle\b/.test(pathText.slice(i))) { toks.push({ t: 'kw', v: 'cycle' }); i += 5; continue; }
+      if (/^node\b/.test(pathText.slice(i))) {
+        var nodeStart = i;
+        i += 4;
+        while (pathText[i] === ' ') i++;
+        var optsStr = null;
+        if (pathText[i] === '[') {
+          var closeBracket = pathText.indexOf(']', i);
+          if (closeBracket !== -1) {
+            optsStr = pathText.slice(i, closeBracket + 1);
+            i = closeBracket + 1;
+          }
+        }
+        while (pathText[i] === ' ') i++;
+        if (pathText[i] === '{') {
+          var depth = 0, textStart = i + 1, textEnd = -1;
+          for (var j = i; j < pathText.length; j++) {
+            if (pathText[j] === '{') depth++;
+            else if (pathText[j] === '}') {
+              depth--;
+              if (depth === 0) { textEnd = j; break; }
+            }
+          }
+          if (textEnd !== -1) {
+            toks.push({ t: 'node', opts: optsStr, text: pathText.slice(textStart, textEnd) });
+            i = textEnd + 1;
+            continue;
+          }
+        }
+        i = nodeStart; // fallback if parse fails
+      }
+      if (/^arc\b/.test(pathText.slice(i))) {
+        i += 3;
+        while (pathText[i] === ' ') i++;
+        if (pathText[i] === '(') {
+          var end = findMatchingParen(pathText, i);
+          if (end === -1) end = pathText.length - 1;
+          toks.push({ t: 'arc', v: pathText.slice(i + 1, end) });
+          i = end + 1;
+        }
+        continue;
+      }
+      if (c === '(') {
+        var end2 = findMatchingParen(pathText, i);
+        if (end2 === -1) { i = n; continue; }
+        toks.push({ t: 'coord', v: pathText.slice(i, end2 + 1) });
+        i = end2 + 1;
+        continue;
+      }
+      i++;
+    }
+    return toks;
+  }
+
+  function interpretPath(pathText, ctx) {
+    var toks = tokenizePath(pathText);
+    var actions = [];
+    var current = null, first = null;
+    var pendingDraw = false, pendingRelative = false;
+    for (var k = 0; k < toks.length; k++) {
+      var tok = toks[k];
+      if (tok.t === 'op') {
+        if (tok.v === '--') pendingDraw = true;
+        else pendingRelative = true;
+        continue;
+      }
+      if (tok.t === 'coord') {
+        var pt;
+        if (pendingRelative && current) {
+          var off = resolvePoint(tok.v, ctx);
+          pt = { ggb: '((' + current.ggb + ')+(' + off.ggb + '))', num: { x: current.num.x + off.num.x, y: current.num.y + off.num.y } };
+        } else {
+          pt = resolvePoint(tok.v, ctx);
+        }
+        if (first === null) { first = pt; current = pt; pendingRelative = false; continue; }
+        if (pendingDraw) { actions.push({ type: 'segment', from: current, to: pt }); pendingDraw = false; }
+        current = pt;
+        pendingRelative = false;
+        continue;
+      }
+      if (tok.t === 'arc') {
+        var parts = splitTopLevel(tok.v, ':');
+        if (parts.length === 3 && current) {
+          var startDeg = evalMathExpr(parts[0]);
+          var endDeg = evalMathExpr(parts[1]);
+          var rExpr = toGgbNumberExpr(parts[2]);
+          var rNum = evalMathExpr(parts[2]);
+          var centerGgb = '((' + current.ggb + ')-(' + rExpr + ')*(cos(' + trimNum(startDeg) + '°),sin(' + trimNum(startDeg) + '°)))';
+          var centerNum = { x: current.num.x - rNum * Math.cos(startDeg * Math.PI / 180), y: current.num.y - rNum * Math.sin(startDeg * Math.PI / 180) };
+          actions.push({ type: 'arc', center: { ggb: centerGgb, num: centerNum }, radiusGgb: rExpr, radiusNum: rNum, startDeg: startDeg, endDeg: endDeg });
+          var endGgb = '((' + centerGgb + ')+(' + rExpr + ')*(cos(' + trimNum(endDeg) + '°),sin(' + trimNum(endDeg) + '°)))';
+          var endNum = { x: centerNum.x + rNum * Math.cos(endDeg * Math.PI / 180), y: centerNum.y + rNum * Math.sin(endDeg * Math.PI / 180) };
+          current = { ggb: endGgb, num: endNum };
+        }
+        pendingDraw = false; pendingRelative = false;
+        continue;
+      }
+      if (tok.t === 'node') {
+        if (current) actions.push({ type: 'node', opts: tok.opts, text: tok.text, pt: current });
+        continue;
+      }
+      if (tok.t === 'kw' && tok.v === 'cycle') {
+        if (current && first) actions.push({ type: 'segment', from: current, to: first });
+        current = first;
+        pendingDraw = false;
+        continue;
+      }
+    }
+    return actions;
+  }
+
+  function parseOptions(raw, defaults) {
+    var opts = { dashed: false, dotted: false, thickness: defaults.thickness, color: defaults.color, arrow: null, fillOpacity: 0, hasExplicitColor: false, domain: null };
+    if (!raw) return opts;
+    raw = raw.replace(/^\[|\]$/g, '');
+    var toks = splitTopLevel(raw, ',');
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i].trim();
+      if (!t) continue;
+      if (/^dashed$/i.test(t)) opts.dashed = true;
+      else if (/^dotted$/i.test(t)) opts.dotted = true;
+      else if (/^(ultra ?thin|very ?thin)$/i.test(t)) opts.thickness = 1;
+      else if (/^thin$/i.test(t)) opts.thickness = 2;
+      else if (/^thick$/i.test(t)) opts.thickness = 5;
+      else if (/^(ultra ?thick|very ?thick)$/i.test(t)) opts.thickness = 7;
+      else if (/^->$/.test(t)) opts.arrow = 'end';
+      else if (/^<-$/.test(t)) opts.arrow = 'start';
+      else if (/^<->$/.test(t)) opts.arrow = 'both';
+      else if (/^fill\s*=/.test(t) || /^opacity\s*=/.test(t)) opts.fillOpacity = 0.25;
+      else if (/^domain\s*=\s*([^:]+):([^\]]+)/.test(t)) {
+        var dm = t.match(/^domain\s*=\s*([^:]+):([^\]]+)/);
+        opts.domain = [evalMathExpr(dm[1]), evalMathExpr(dm[2])];
+      }
+      else {
+        var cm = COLOR_MAP[t.toLowerCase()];
+        if (cm) { opts.color = cm; opts.hasExplicitColor = true; }
+      }
+    }
+    return opts;
+  }
+
+  var ANCHOR_OFFSETS = {
+    'above': [0, 1], 'below': [0, -1], 'left': [-1, 0], 'right': [1, 0],
+    'above left': [-0.7, 0.7], 'above right': [0.7, 0.7],
+    'below left': [-0.7, -0.7], 'below right': [0.7, -0.7],
+    'north': [0, 1], 'south': [0, -1], 'east': [1, 0], 'west': [-1, 0],
+    'north west': [-0.7, 0.7], 'north east': [0.7, 0.7],
+    'south west': [-0.7, -0.7], 'south east': [0.7, -0.7],
+    'center': [0, 0]
+  };
+
+  function extractAnchor(optsRaw) {
+    if (!optsRaw) return null;
+    var raw = optsRaw.replace(/^\[|\]$/g, '');
+    var toks = splitTopLevel(raw, ',').map(function (x) { return x.trim().toLowerCase(); });
+    for (var i = 0; i < toks.length; i++) {
+      if (ANCHOR_OFFSETS.hasOwnProperty(toks[i])) return toks[i];
+    }
+    return null;
+  }
+
+  function cleanLatexLabel(txt) {
+    if (!txt) return '';
+    var s = txt;
+    s = s.replace(/\$/g, '');
+    s = s.replace(/\\(small|scriptsize|tiny|footnotesize|large|Large|LARGE|normalsize)\b/g, '');
+    s = s.replace(/\\widehat\{([^}]*)\}/g, '$1');
+    s = s.replace(/\\hat\{([^}]*)\}/g, '$1');
+    s = s.replace(/\\overline\{([^}]*)\}/g, '$1');
+    s = s.replace(/\\sqrt\{([^}]*)\}/g, '√($1)');
+    s = s.replace(/\^\\circ/g, '°');
+    s = s.replace(/\\circ/g, '°');
+    s = s.replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β').replace(/\\gamma/g, 'γ')
+      .replace(/\\theta/g, 'θ').replace(/\\pi/g, 'π').replace(/\\varphi/g, 'φ')
+      .replace(/\\times/g, '×').replace(/\\cdot/g, '·')
+      .replace(/\\perp/g, '⊥').replace(/\\parallel/g, '∥');
+    s = s.replace(/\{|\}/g, '');
+    s = s.replace(/\\,/g, ' ').replace(/\\;/g, ' ');
+    s = s.replace(/\\/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+    return s;
+  }
+
+  function ggbStringLiteral(s) {
+    return '"' + String(s).replace(/"/g, '\\"') + '"';
+  }
+
+  function extractDefs(text) {
+    var defs = [];
+    var re = /\\def\\([a-zA-Z@]+)/g;
+    var m;
+    var removeRanges = [];
+    while ((m = re.exec(text))) {
+      var start = m.index;
+      var braceStart = text.indexOf('{', m.index);
+      if (braceStart === -1) continue;
+      var depth = 0, endIdx = -1;
+      for (var i = braceStart; i < text.length; i++) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+      }
+      if (endIdx === -1) continue;
+      var body = text.slice(braceStart + 1, endIdx);
+      defs.push({ name: m[1], body: body });
+      removeRanges.push([start, endIdx + 1]);
+      re.lastIndex = endIdx + 1;
+    }
+    removeRanges.sort(function (a, b) { return b[0] - a[0]; });
+    var cleaned = text;
+    for (var r = 0; r < removeRanges.length; r++) {
+      cleaned = cleaned.slice(0, removeRanges[r][0]) + cleaned.slice(removeRanges[r][1]);
+    }
+    var rightAngleMacros = {};
+    defs.forEach(function (d) {
+      var bangCount = (d.body.match(/!#1!/g) || []).length;
+      if (bangCount >= 2) rightAngleMacros[d.name] = true;
+    });
+    return { cleaned: cleaned, rightAngleMacros: rightAngleMacros };
+  }
+
+  function insertImplicitTerminators(body, macroNames) {
+    var cmdAlt = ['coordinate', 'draw', 'fill', 'filldraw', 'path', 'node'].concat(macroNames).join('|');
+    var re = new RegExp('\\\\(?:' + cmdAlt + ')\\b', 'g');
+    var positions = [];
+    var m;
+    while ((m = re.exec(body))) positions.push(m.index);
+    var result = body, offset = 0;
+    for (var i = 1; i < positions.length; i++) {
+      var pos = positions[i] + offset;
+      var j = pos - 1;
+      while (j >= 0 && /\s/.test(result[j])) j--;
+      if (j < 0 || result[j] === ';') continue;
+      result = result.slice(0, pos) + ';' + result.slice(pos);
+      offset += 1;
+    }
+    return result;
+  }
+
+  function convert(source, options) {
+    options = options || {};
+    var defaultColor = options.defaultColor || [0, 0, 0];
+    var labelDist = options.labelDist != null ? options.labelDist : 0.32;
+    var defaultThickness = options.defaultThickness || 3;
+
+    var cmds = [];
+    var warnings = [];
+    var ctx = { points: {}, warnings: warnings };
+    var counter = 1;
+    function uniq(prefix) { return prefix + (counter++); }
+
+    var text = source || '';
+    text = text.replace(/(^|[^\\])%.*$/gm, '$1');
+
+    var beginM = text.match(/\\begin\{tikzpicture\}(\[[^\]]*\])?/);
+    var globalOpts = { thickness: defaultThickness, color: defaultColor };
+    if (beginM && beginM[1]) {
+      var go = parseOptions(beginM[1], globalOpts);
+      globalOpts = { thickness: go.thickness, color: go.color };
+    }
+    var bodyStart = beginM ? beginM.index + beginM[0].length : 0;
+    var endM = text.indexOf('\\end{tikzpicture}');
+    var body = endM === -1 ? text.slice(bodyStart) : text.slice(bodyStart, endM);
+
+    var defInfo = extractDefs(body);
+    body = defInfo.cleaned;
+    var macroNames = Object.keys(defInfo.rightAngleMacros);
+    body = insertImplicitTerminators(body, macroNames);
+
+    var statements = splitTopLevel(body, ';').map(function (s) { return s.trim(); }).filter(Boolean);
+
+    var bbox = { xmin: Infinity, xmax: -Infinity, ymin: Infinity, ymax: -Infinity };
+    function trackNum(num) {
+      if (!num) return;
+      if (num.x < bbox.xmin) bbox.xmin = num.x;
+      if (num.x > bbox.xmax) bbox.xmax = num.x;
+      if (num.y < bbox.ymin) bbox.ymin = num.y;
+      if (num.y > bbox.ymax) bbox.ymax = num.y;
+    }
+
+    var autoColors = [
+      [255, 0, 0],       // Đỏ
+      [204, 255, 0],     // Vàng chanh
+      [0, 204, 0],       // Xanh lá
+      [255, 255, 255],   // Trắng
+      [0, 0, 0]          // Đen
+    ];
+    var autoColorIdx = 0;
+
+    function applyStyle(names, opts) {
+      var c = opts.color;
+      if (!opts.hasExplicitColor && options.autoColor) {
+        c = autoColors[autoColorIdx % autoColors.length];
+        autoColorIdx++;
+      }
+      names.forEach(function (nm) {
+        if (opts.dashed) cmds.push('SetLineStyle(' + nm + ',1)');
+        else if (opts.dotted) cmds.push('SetLineStyle(' + nm + ',3)');
+        if (opts.thickness) cmds.push('SetLineThickness(' + nm + ',' + opts.thickness + ')');
+        cmds.push('SetColor(' + nm + ',' + c[0] + ',' + c[1] + ',' + c[2] + ')');
+        if (opts.fillOpacity) cmds.push('SetFilling(' + nm + ',' + opts.fillOpacity + ')');
+      });
+    }
+
+    function makeAnchorOffsetGgb(anchor) {
+      var dir = anchor ? (ANCHOR_OFFSETS[anchor] || [0, 0]) : [0, 0];
+      if (dir[0] === 0 && dir[1] === 0) return null;
+      return '(' + trimNum(dir[0] * labelDist) + ',' + trimNum(dir[1] * labelDist) + ')';
+    }
+
+    statements.forEach(function (stmt) {
+      try {
+        var mMacro = null;
+        for (var mi = 0; mi < macroNames.length; mi++) {
+          var nm = macroNames[mi];
+          var re = new RegExp('^\\\\' + nm + '\\s*(\\[[^\\]]*\\])?\\s*\\(([^)]*)\\)$');
+          var mm = stmt.match(re);
+          if (mm) { mMacro = { name: nm, opts: mm[1], args: mm[2] }; break; }
+        }
+        if (mMacro) {
+          var argParts = splitTopLevel(mMacro.args, ',');
+          if (argParts.length === 3) {
+            var sizeM = mMacro.opts && mMacro.opts.match(/size\s*=\s*([^,\]]+)/);
+            var sizeExpr = sizeM ? toGgbNumberExpr(sizeM[1]) : '0.25';
+            var P = resolvePoint('(' + argParts[0].trim() + ')', ctx);
+            var V = resolvePoint('(' + argParts[1].trim() + ')', ctx);
+            var Q = resolvePoint('(' + argParts[2].trim() + ')', ctx);
+            var p1 = uniq('ra'), p2 = uniq('ra'), p3 = uniq('ra');
+            cmds.push(p1 + '=(' + V.ggb + ')+(' + sizeExpr + ')*UnitVector((' + P.ggb + ')-(' + V.ggb + '))');
+            cmds.push(p2 + '=(' + V.ggb + ')+(' + sizeExpr + ')*UnitVector((' + Q.ggb + ')-(' + V.ggb + '))');
+            cmds.push(p3 + '=(' + p1 + ')+(' + p2 + ')-(' + V.ggb + ')');
+            cmds.push('SetVisibleInView(' + p1 + ',1,false)');
+            cmds.push('SetVisibleInView(' + p2 + ',1,false)');
+            cmds.push('SetVisibleInView(' + p3 + ',1,false)');
+            var segA = uniq('s'), segB = uniq('s');
+            cmds.push(segA + '=Segment(' + p1 + ',' + p3 + ')');
+            cmds.push(segB + '=Segment(' + p3 + ',' + p2 + ')');
+            applyStyle([segA, segB], { thickness: 1, color: defaultColor, hasExplicitColor: true });
+          } else {
+            warnings.push('Bỏ qua lời gọi macro (cần 3 tham số): ' + stmt);
+          }
+          return;
+        }
+
+        var mCoord = stmt.match(/^\\coordinate\s*\(([^)]+)\)\s*at\s*(.+)$/);
+        if (mCoord) {
+          var pname = mCoord[1].trim();
+          var pt = resolvePoint(mCoord[2].trim(), ctx);
+          cmds.push(pname + '=' + pt.ggb);
+          cmds.push('SetPointSize(' + pname + ',' + (options.pointSize || 5) + ')');
+          var c0 = defaultColor;
+          cmds.push('SetColor(' + pname + ',' + c0[0] + ',' + c0[1] + ',' + c0[2] + ')');
+          ctx.points[pname] = { ggb: pname, num: pt.num };
+          trackNum(pt.num);
+          return;
+        }
+
+        var mDraw = stmt.match(/^\\(draw|fill|filldraw|path)\s*(\[[^\]]*\])?\s*([\s\S]+)$/);
+        if (mDraw) {
+          var cmdType = mDraw[1];
+          var opts = parseOptions(mDraw[2], globalOpts);
+          var rest = mDraw[3].trim();
+
+          var circleInfo = null;
+          if (rest.charAt(0) === '(') {
+            var closeIdx = findMatchingParen(rest, 0);
+            if (closeIdx !== -1) {
+              var afterPt = rest.slice(closeIdx + 1).trim();
+              var circM = afterPt.match(/^circle\s*\(([^)]+)\)\s*(node\s*(\[[^\]]*\])?\s*\{([\s\S]*)\})?$/);
+              if (circM) {
+                circleInfo = { ptText: rest.slice(0, closeIdx + 1), radiusText: circM[1], hasNode: circM[2] !== undefined, nodeOpts: circM[3], nodeLabel: circM[4] };
+              }
+            }
+          }
+          if (circleInfo) {
+            var ptExpr = resolvePoint(circleInfo.ptText, ctx);
+            var bareName = circleInfo.ptText.trim().replace(/^\(|\)$/g, '');
+            var isNamed = /^[A-Za-z][A-Za-z0-9_]*$/.test(bareName);
+            var centerName;
+            if (isNamed && ctx.points[bareName]) {
+              centerName = bareName;
+            } else {
+              centerName = uniq('pt');
+              cmds.push(centerName + '=' + ptExpr.ggb);
+              ctx.points[centerName] = { ggb: centerName, num: ptExpr.num };
+            }
+            trackNum(ptExpr.num);
+            var rNum = evalMathExpr(circleInfo.radiusText);
+            var rExpr = toGgbNumberExpr(circleInfo.radiusText);
+            if (rNum > 0 && rNum < 0.09) {
+              cmds.push('SetPointSize(' + centerName + ',' + ((options.pointSize || 5) + 1) + ')');
+              var cc = opts.color || defaultColor;
+              cmds.push('SetColor(' + centerName + ',' + cc[0] + ',' + cc[1] + ',' + cc[2] + ')');
+            } else {
+              var circName = uniq('circ');
+              cmds.push(circName + '=Circle(' + centerName + ',' + rExpr + ')');
+              applyStyle([circName], opts);
+              if (cmdType === 'fill' || cmdType === 'filldraw') cmds.push('SetFilling(' + circName + ',0.15)');
+            }
+            if (circleInfo.hasNode) {
+              var anchor = extractAnchor(circleInfo.nodeOpts);
+              var offG = makeAnchorOffsetGgb(anchor);
+              var label = cleanLatexLabel(circleInfo.nodeLabel);
+              var txtName = uniq('lbl');
+              var posExpr = offG ? '((' + centerName + ')+' + offG + ')' : centerName;
+              if (options.labelSize) {
+                cmds.push(txtName + '=Text(' + ggbStringLiteral(options.labelSize + label) + ',' + posExpr + ',false,true)');
+              } else {
+                cmds.push(txtName + '=Text(' + ggbStringLiteral(label) + ',' + posExpr + ')');
+              }
+              cmds.push('SetLabelVisible(' + centerName + ',false)');
+              var lc = options.textColor || opts.color || defaultColor;
+              cmds.push('SetColor(' + txtName + ',' + lc[0] + ',' + lc[1] + ',' + lc[2] + ')');
+            }
+            return;
+          }
+
+          var plotM = rest.match(/^plot\s*\(\s*\\x\s*,\s*\{([^\}]+)\}\s*\)/);
+          if (plotM) {
+            var exprRaw = plotM[1];
+            var ggbExpr = exprRaw.replace(/\\x/g, 'x');
+            var fName = uniq('f');
+            if (opts.domain) {
+              cmds.push(fName + '=Function(' + ggbExpr + ',' + trimNum(opts.domain[0]) + ',' + trimNum(opts.domain[1]) + ')');
+            } else {
+              cmds.push(fName + '=' + ggbExpr);
+            }
+            applyStyle([fName], opts);
+            return;
+          }
+
+          var actions = interpretPath(rest, ctx);
+          if (actions.length === 0) {
+            warnings.push('Không phân tích được dòng lệnh: ' + stmt);
+            return;
+          }
+          var createdNames = [];
+          actions.forEach(function (act) {
+            if (act.type === 'segment') {
+              trackNum(act.from.num); trackNum(act.to.num);
+              var sName = uniq('s');
+              var kind = opts.arrow ? 'Vector' : 'Segment';
+              cmds.push(sName + '=' + kind + '(' + act.from.ggb + ',' + act.to.ggb + ')');
+              createdNames.push(sName);
+            } else if (act.type === 'arc') {
+              trackNum(act.center.num);
+              var circN = uniq('hc');
+              cmds.push(circN + '=Circle(' + act.center.ggb + ',' + act.radiusGgb + ')');
+              cmds.push('SetVisibleInView(' + circN + ',1,false)');
+              var arcN = uniq('arc');
+              cmds.push(arcN + '=Arc(' + circN + ',' + trimNum(act.startDeg) + '°,' + trimNum(act.endDeg) + '°)');
+              createdNames.push(arcN);
+            } else if (act.type === 'node') {
+              var nAnchor = extractAnchor(act.opts);
+              var nOff = makeAnchorOffsetGgb(nAnchor);
+              var nLabel = cleanLatexLabel(act.text);
+              var nName = uniq('lbl');
+              var nPos = nOff ? '((' + act.pt.ggb + ')+' + nOff + ')' : act.pt.ggb;
+              if (options.labelSize) {
+                cmds.push(nName + '=Text(' + ggbStringLiteral(options.labelSize + nLabel) + ',' + nPos + ',false,true)');
+              } else {
+                cmds.push(nName + '=Text(' + ggbStringLiteral(nLabel) + ',' + nPos + ')');
+              }
+              var ncol = options.textColor || defaultColor;
+              cmds.push('SetColor(' + nName + ',' + ncol[0] + ',' + ncol[1] + ',' + ncol[2] + ')');
+            }
+          });
+          applyStyle(createdNames, opts);
+          return;
+        }
+
+        var mNode = stmt.match(/^\\node\s*(\[[^\]]*\])?\s*at\s*(\([\s\S]+\))\s*\{([\s\S]*)\}$/);
+        if (mNode) {
+          var nAnchor = extractAnchor(mNode[1]);
+          var nPt = resolvePoint(mNode[2].trim(), ctx);
+          trackNum(nPt.num);
+          var nLabel = cleanLatexLabel(mNode[3]);
+          var nOff = makeAnchorOffsetGgb(nAnchor);
+          var nName = uniq('lbl');
+          var nPos = nOff ? '((' + nPt.ggb + ')+' + nOff + ')' : nPt.ggb;
+          if (options.labelSize) {
+            cmds.push(nName + '=Text(' + ggbStringLiteral(options.labelSize + nLabel) + ',' + nPos + ',false,true)');
+          } else {
+            cmds.push(nName + '=Text(' + ggbStringLiteral(nLabel) + ',' + nPos + ')');
+          }
+          var ncol = options.textColor || defaultColor;
+          cmds.push('SetColor(' + nName + ',' + ncol[0] + ',' + ncol[1] + ',' + ncol[2] + ')');
+          return;
+        }
+
+        if (/^\\(usetikzlibrary|usepackage|begin|end)/.test(stmt)) return;
+        warnings.push('Bỏ qua (chưa hỗ trợ): ' + stmt);
+      } catch (e) {
+        warnings.push('Lỗi xử lý dòng "' + stmt + '": ' + e.message);
+      }
+    });
+
+    if (!isFinite(bbox.xmin)) bbox = { xmin: -1, xmax: 1, ymin: -1, ymax: 1 };
+
+    return { commands: cmds, warnings: warnings, bbox: bbox, pointNames: Object.keys(ctx.points) };
+  }
+
+  return { convert: convert };
+})();
+
+/* ============================================================
+   Application UI wiring
+   ============================================================ */
+var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{calc}\n" +
+"\\begin{tikzpicture}[line join=round, line cap=round, >=stealth, thick]\n" +
+"    % Định nghĩa macro vẽ ký hiệu góc vuông\n" +
+"    \\def\\markrightangle[size=#1](#2,#3,#4){\n" +
+"        \\draw[thin] ($(#3)!#1!(#2)$) -- ($($(#3)!#1!(#2)$)+($(#3)!#1!(#4)$)-(#3)$) -- ($(#3)!#1!(#4)$);\n" +
+"    }\n" +
+"    % Định nghĩa các tọa độ\n" +
+"    \\coordinate (H) at (0,0);\n" +
+"    \\coordinate (A) at (0,3);\n" +
+"    \\coordinate (B) at ({-sqrt(3)},0);\n" +
+"    \\coordinate (C) at ({3*sqrt(3)},0);\n" +
+"    \\coordinate (M) at ({sqrt(3)},0);\n" +
+"    % Chân các đường vuông góc E, F\n" +
+"    \\coordinate (E) at ($(A)!(H)!(B)$);\n" +
+"    \\coordinate (F) at ($(A)!(H)!(C)$);\n" +
+"    % Vẽ tam giác và các đoạn thẳng chính\n" +
+"    \\draw (A) -- (B) -- (C) -- cycle;\n" +
+"    \\draw (A) -- (H);\n" +
+"    \\draw (A) -- (M);\n" +
+"    \\draw (H) -- (E);\n" +
+"    \\draw (H) -- (F);\n" +
+"    % Nối E, F với M (vẽ nét đứt để thể hiện tứ giác AEMF)\n" +
+"    \\draw[dashed, thin] (E) -- (M) -- (F);\n" +
+"    % Ký hiệu góc 60 độ tại B\n" +
+"    \\draw[thin] (B) ++(0.4,0) arc (0:60:0.4);\n" +
+"    \\node at ($(B)+(30:0.7)$) {\\small $60^\\circ$};\n" +
+"    % Ký hiệu góc vuông\n" +
+"    \\markrightangle[size=0.25cm](B,A,C)\n" +
+"    \\markrightangle[size=0.25cm](A,H,C)\n" +
+"    \\markrightangle[size=0.25cm](A,E,H)\n" +
+"    \\markrightangle[size=0.25cm](A,F,H)\n" +
+"    % Ký hiệu hai đoạn thẳng bằng nhau (MB = MC)\n" +
+"    \\draw[thin] ($(B)!0.4!(M)$) ++(-2pt,-3pt) -- ++(3pt,6pt);\n" +
+"    \\draw[thin] ($(B)!0.4!(M)$) ++(1pt,-3pt) -- ++(3pt,6pt);\n" +
+"    \\draw[thin] ($(M)!0.5!(C)$) ++(-2pt,-3pt) -- ++(3pt,6pt);\n" +
+"    \\draw[thin] ($(M)!0.5!(C)$) ++(1pt,-3pt) -- ++(3pt,6pt);\n" +
+"    % Vẽ và gắn nhãn các điểm\n" +
+"    \\fill (A) circle (1.5pt) node[above] {$A$};\n" +
+"    \\fill (B) circle (1.5pt) node[below left] {$B$};\n" +
+"    \\fill (C) circle (1.5pt) node[below right] {$C$};\n" +
+"    \\fill (H) circle (1.5pt) node[below] {$H$};\n" +
+"    \\fill (M) circle (1.5pt) node[below] {$M$};\n" +
+"    \\fill (E) circle (1.5pt) node[above left] {$E$};\n" +
+"    \\fill (F) circle (1.5pt) node[above right] {$F$};\n" +
+"\\end{tikzpicture}\n";
+
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var tikzInput = $('tikzInput'), ggbCmds = $('ggbCmds'), warnBox = $('warnBox'),
+      errBox = $('errBox'), okBox = $('okBox');
+  var optColor = $('optColor'), optThickness = $('optThickness'), optLabelDist = $('optLabelDist');
+  var optAutoColor = $('optAutoColor'), optPointSize = $('optPointSize'), optLabelSize = $('optLabelSize'), optTextColor = $('optTextColor');
+  var optAxes = $('optAxes'), optGrid = $('optGrid'), optAlgebra = $('optAlgebra');
+  var pngScale = $('pngScale'), pngDpi = $('pngDpi'), pngTransparent = $('pngTransparent');
+
+  tikzInput.value = EXAMPLE_TIKZ;
+
+  function hexToRgb(hex) {
+    var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) return [0, 0, 0];
+    return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  }
+
+  function showWarnings(list) {
+    if (!list || !list.length) { warnBox.classList.remove('show'); warnBox.textContent = ''; return; }
+    warnBox.textContent = '⚠ ' + list.length + ' dòng chưa tự động chuyển được:\n' + list.map(function (w) { return '• ' + w; }).join('\n');
+    warnBox.classList.add('show');
+  }
+  function showErrors(list) {
+    if (!list || !list.length) { errBox.classList.remove('show'); errBox.textContent = ''; return; }
+    errBox.textContent = '✗ ' + list.length + ' lệnh GeoGebra lỗi khi áp dụng:\n' + list.map(function (w) { return '• ' + w; }).join('\n');
+    errBox.classList.add('show');
+  }
+  function showOk(msg) {
+    okBox.textContent = msg;
+    okBox.classList.add('show');
+    clearTimeout(showOk._t);
+    showOk._t = setTimeout(function () { okBox.classList.remove('show'); }, 3500);
+  }
+
+  var lastBbox = null;
+
+  function doConvert() {
+    var options = {
+      defaultColor: hexToRgb(optColor.value),
+      defaultThickness: parseInt(optThickness.value, 10) || 3,
+      labelDist: parseFloat(optLabelDist.value) || 0.32,
+      autoColor: optAutoColor.checked,
+      pointSize: parseInt(optPointSize.value, 10) || 5,
+      labelSize: optLabelSize.value,
+      textColor: optTextColor.value === 'auto' ? null : hexToRgb(optTextColor.value)
+    };
+    var result = TikzToGgb.convert(tikzInput.value, options);
+    ggbCmds.value = result.commands.join('\n');
+    showWarnings(result.warnings);
+    lastBbox = result.bbox;
+    runOnGgb(result.commands, true);
+  }
+
+  function runOnGgb(cmdArray, doFit) {
+    if (!window.ggbApplet) { showErrors(['GeoGebra chưa sẵn sàng, vui lòng đợi vài giây rồi thử lại.']); return; }
+    ggbApplet.newConstruction();
+    var errs = [];
+    cmdArray.forEach(function (c, idx) {
+      if (!c.trim()) return;
+      try {
+        var ok = ggbApplet.evalCommand(c);
+        if (ok === false) errs.push('#' + (idx + 1) + ': ' + c);
+      } catch (e) {
+        errs.push('#' + (idx + 1) + ': ' + c + ' — ' + (e && e.message ? e.message : e));
+      }
+    });
+    showErrors(errs);
+    if (errs.length === 0 && cmdArray.length) showOk('✓ Đã vẽ ' + cmdArray.filter(function(c){return c.trim();}).length + ' lệnh thành công.');
+    applyViewSettings();
+    if (doFit) fitView();
+  }
+
+  function fitView() {
+    if (!window.ggbApplet) return;
+    var bbox = lastBbox || { xmin: -1, xmax: 1, ymin: -1, ymax: 1 };
+    var w = bbox.xmax - bbox.xmin, h = bbox.ymax - bbox.ymin;
+    var mx = w * 0.18 + 0.4, my = h * 0.18 + 0.4;
+    try {
+      ggbApplet.setCoordSystem(bbox.xmin - mx, bbox.xmax + mx, bbox.ymin - my, bbox.ymax + my);
+    } catch (e) {}
+  }
+
+  function applyViewSettings() {
+    if (!window.ggbApplet) return;
+    try {
+      ggbApplet.setAxesVisible(optAxes.checked, optAxes.checked);
+      ggbApplet.setGridVisible(optGrid.checked);
+    } catch (e) {}
+  }
+
+  function applyPerspective() {
+    if (!window.ggbApplet) return;
+    try { ggbApplet.setPerspective(optAlgebra.checked ? 'AG' : 'G'); } catch (e) {}
+  }
+
+  $('btnConvert').addEventListener('click', doConvert);
+  $('btnExample').addEventListener('click', function () { tikzInput.value = EXAMPLE_TIKZ; });
+  $('btnClearInput').addEventListener('click', function () { tikzInput.value = ''; });
+  $('btnReapply').addEventListener('click', function () {
+    var lines = ggbCmds.value.split('\n');
+    runOnGgb(lines, false);
+  });
+  $('btnCopyCmds').addEventListener('click', function () {
+    ggbCmds.select();
+    try { document.execCommand('copy'); showOk('✓ Đã sao chép danh sách lệnh.'); } catch (e) {}
+  });
+  $('btnFit').addEventListener('click', fitView);
+  $('btnResetGgb').addEventListener('click', function () {
+    if (window.ggbApplet) ggbApplet.newConstruction();
+    ggbCmds.value = '';
+    showWarnings([]); showErrors([]);
+  });
+  optAxes.addEventListener('change', applyViewSettings);
+  optGrid.addEventListener('change', applyViewSettings);
+  optAlgebra.addEventListener('change', applyPerspective);
+
+  $('btnExportPng').addEventListener('click', function () {
+    if (!window.ggbApplet) { showErrors(['GeoGebra chưa sẵn sàng.']); return; }
+    try {
+      var scale = parseFloat(pngScale.value) || 4;
+      var dpi = parseInt(pngDpi.value, 10) || 300;
+      var transparent = !!pngTransparent.checked;
+      var base64 = ggbApplet.getPNGBase64(scale, transparent, dpi);
+      var a = document.createElement('a');
+      a.href = 'data:image/png;base64,' + base64;
+      a.download = 'hinh-ve-geogebra.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showOk('✓ Đã xuất ảnh PNG.');
+    } catch (e) {
+      showErrors(['Không xuất được PNG: ' + (e && e.message ? e.message : e)]);
+    }
+  });
+
+  /* ---------- GeoGebra applet bootstrap ---------- */
+  function onGgbReady(api) {
+    window.ggbApplet = api;
+    $('ggbLoading').style.display = 'none';
+    $('engineBadge').textContent = 'GeoGebra đã sẵn sàng';
+    applyViewSettings();
+    applyPerspective();
+    doConvert();
+  }
+
+  function sizeApplet() {
+    var wrap = $('ggb-wrap');
+    return { w: Math.max(320, wrap.clientWidth), h: Math.max(320, wrap.clientHeight) };
+  }
+
+  function initGgb() {
+    if (typeof GGBApplet === 'undefined') {
+      $('engineBadge').textContent = 'Không tải được GeoGebra (kiểm tra mạng)';
+      $('ggbLoading').textContent = 'Không tải được GeoGebra — kiểm tra kết nối mạng rồi tải lại trang.';
+      return;
+    }
+    var sz = sizeApplet();
+    var params = {
+      appName: 'classic',
+      width: sz.w, height: sz.h,
+      showToolBar: true,
+      showAlgebraInput: true,
+      showMenuBar: false,
+      showResetIcon: false,
+      allowStyleBar: true,
+      showToolBarHelp: false,
+      errorDialogsActive: false,
+      useBrowserForJS: false,
+      perspective: 'G',
+      language: 'vi',
+      appletOnLoad: onGgbReady
+    };
+    var applet = new GGBApplet(params, true);
+    applet.inject('ggb-element');
+
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (window.ggbApplet) {
+          var s = sizeApplet();
+          try { ggbApplet.setSize(s.w, s.h); } catch (e) {}
+        }
+      }, 150);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGgb);
+  } else {
+    initGgb();
+  }
+})();
+</script>
+</body>
+</html>
