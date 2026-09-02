@@ -174,10 +174,11 @@
 
     <div class="card">
       <h2><span class="n">3</span> Lệnh GeoGebra (có thể sửa tay)</h2>
-      <div class="hint">Danh sách lệnh do bộ chuyển đổi sinh ra — bạn có thể sửa trực tiếp rồi bấm "Áp dụng lại" để chạy lại, không cần chuyển đổi từ đầu.</div>
+      <div class="hint">Danh sách lệnh do bộ chuyển đổi sinh ra — bạn có thể sửa trực tiếp rồi bấm "Áp dụng lại" để chạy lại, không cần chuyển đổi từ đầu. Nếu bạn vẽ thêm/sửa trực tiếp bằng thanh công cụ GeoGebra bên phải, bấm "Lấy lệnh từ hình vẽ hiện tại" để đưa các thay đổi đó vào đây trước khi lưu.</div>
       <textarea id="ggbCmds" spellcheck="false"></textarea>
       <div class="row">
         <button class="secondary" id="btnReapply">↻ Áp dụng lại vào GeoGebra</button>
+        <button class="secondary" id="btnPullFromGgb">⇩ Lấy lệnh từ hình vẽ hiện tại</button>
         <button class="ghost" id="btnCopyCmds">Sao chép</button>
       </div>
       <div id="errBox"></div>
@@ -1205,6 +1206,43 @@ var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{c
     }
   }
 
+  /* Lấy lại danh sách lệnh từ trạng thái hiện tại của GeoGebra — dùng để cuốn theo
+     các đối tượng vẽ/sửa trực tiếp bằng thanh công cụ GeoGebra (không chỉ những gì
+     bộ chuyển đổi TikZ sinh ra ban đầu), để khi Lưu/Cập nhật thì "mã cũ" trong khung
+     Lệnh GeoGebra được thay bằng đúng những gì đang hiển thị trên hình. */
+  function pullCommandsFromLiveDrawing(silent) {
+    if (!window.ggbApplet) {
+      if (!silent) showSheetStatus('GeoGebra chưa sẵn sàng, vui lòng đợi vài giây rồi thử lại.', true);
+      return false;
+    }
+    var names;
+    try { names = ggbApplet.getAllObjectNames(); } catch (e) {
+      if (!silent) showSheetStatus('Không đọc được danh sách đối tượng từ GeoGebra.', true);
+      return false;
+    }
+    var lines = [];
+    names.forEach(function (name) {
+      var def = '';
+      try { def = ggbApplet.getCommandString(name, false) || ''; } catch (e) {}
+      if (!def) { try { def = ggbApplet.getDefinitionString(name) || ''; } catch (e) {} }
+      if (!def) { try { def = ggbApplet.getValueString(name) || ''; } catch (e) {} }
+      if (!def) return;
+      var prefixRe = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*=\\s*');
+      var body = def.replace(prefixRe, '');
+      lines.push(name + '=' + body);
+
+      try { if (ggbApplet.getVisible(name) === false) lines.push('SetVisibleInView(' + name + ',1,false)'); } catch (e) {}
+      try { var col = ggbApplet.getColor(name); if (col) lines.push('SetColor(' + name + ',' + col + ')'); } catch (e) {}
+      try { var thick = ggbApplet.getLineThickness(name); if (thick) lines.push('SetLineThickness(' + name + ',' + thick + ')'); } catch (e) {}
+      try { var lstyle = ggbApplet.getLineStyle(name); if (lstyle) lines.push('SetLineStyle(' + name + ',' + lstyle + ')'); } catch (e) {}
+      try { var psize = ggbApplet.getPointSize(name); if (psize) lines.push('SetPointSize(' + name + ',' + psize + ')'); } catch (e) {}
+      try { var fill = ggbApplet.getFilling(name); if (fill) lines.push('SetFilling(' + name + ',' + fill + ')'); } catch (e) {}
+    });
+    ggbCmds.value = lines.join('\n');
+    if (!silent) showSheetStatus('✓ Đã lấy lệnh mới nhất từ hình vẽ hiện tại (gồm cả phần vẽ/sửa thêm trực tiếp trên GeoGebra).', false);
+    return true;
+  }
+
   function getSheetUrl() {
     var url = sheetWebAppUrl.value.trim();
     if (!url) {
@@ -1258,6 +1296,7 @@ var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{c
 
   btnSaveSheet.addEventListener('click', function () {
     if (!tikzInput.value.trim()) { showSheetStatus('Chưa có mã TikZ để lưu.', true); return; }
+    pullCommandsFromLiveDrawing(true); // cuốn theo phần vẽ thêm/sửa trực tiếp trên GeoGebra trước khi lưu
     var payload = {
       action: 'save',
       lop: saveLop.value,
@@ -1282,6 +1321,7 @@ var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{c
   btnUpdateSheet.addEventListener('click', function () {
     if (!editingId) return;
     if (!tikzInput.value.trim()) { showSheetStatus('Chưa có mã TikZ để lưu.', true); return; }
+    pullCommandsFromLiveDrawing(true); // cuốn theo phần vẽ thêm/sửa trực tiếp trên GeoGebra trước khi cập nhật
     var payload = {
       action: 'update',
       id: editingId,
@@ -1464,6 +1504,9 @@ var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{c
   $('btnReapply').addEventListener('click', function () {
     var lines = ggbCmds.value.split('\n');
     runOnGgb(lines, false);
+  });
+  $('btnPullFromGgb').addEventListener('click', function () {
+    pullCommandsFromLiveDrawing(false);
   });
   $('btnCopyCmds').addEventListener('click', function () {
     ggbCmds.select();
