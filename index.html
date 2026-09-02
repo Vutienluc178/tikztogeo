@@ -184,6 +184,131 @@
       <div id="okBox"></div>
     </div>
 
+    <div class="card">
+      <h2><span class="n">4</span> Lưu / Mở mã đã lưu (Google Sheet)</h2>
+      <div class="hint">Lưu mã TikZ theo từng lớp lên Google Sheet của bạn; sau này chọn lớp để xem lại danh sách, mở, sửa hoặc xoá. Cần tạo một Google Apps Script Web App (làm một lần, xem hướng dẫn cuối thẻ này) rồi dán URL vào ô dưới đây.</div>
+      <div class="row">
+        <input type="text" id="sheetWebAppUrl" placeholder="https://script.google.com/macros/s/AKfycb.../exec" style="flex:1; min-width:220px; background:#0c1626; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-size:12px; font-family:var(--mono);">
+      </div>
+
+      <div class="hint" style="font-weight:650; color:var(--text); margin-top:2px;">Lưu mã hiện tại</div>
+      <div class="row">
+        <label>Lớp
+          <select id="saveLop">
+            <option value="Lớp 9">Lớp 9</option>
+            <option value="Lớp 10">Lớp 10</option>
+            <option value="Lớp 11">Lớp 11</option>
+            <option value="Lớp 12">Lớp 12</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </label>
+        <input type="text" id="sheetNote" placeholder="Tên bài (vd: Bài 3 - Tam giác vuông)" style="flex:1; min-width:160px; background:#0c1626; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 8px; font-size:12.5px;">
+      </div>
+      <div id="editIndicator" style="display:none; font-size:12px; color:var(--warn); background:#241b0c; border:1px solid #4a3a15; border-radius:8px; padding:6px 9px;"></div>
+      <div class="row">
+        <button class="green" id="btnSaveSheet">☁ Lưu mới</button>
+        <button class="secondary" id="btnUpdateSheet" style="display:none;">✎ Cập nhật mục đang sửa</button>
+        <button class="ghost" id="btnCancelEdit" style="display:none;">Huỷ sửa</button>
+      </div>
+      <div id="sheetStatusBox" style="font-size:12px; display:none; border-radius:8px; padding:8px 10px;"></div>
+
+      <div class="hint" style="font-weight:650; color:var(--text); margin-top:6px;">Mở lại đã lưu</div>
+      <div class="row">
+        <label>Lớp
+          <select id="browseLop">
+            <option value="Lớp 9">Lớp 9</option>
+            <option value="Lớp 10">Lớp 10</option>
+            <option value="Lớp 11">Lớp 11</option>
+            <option value="Lớp 12">Lớp 12</option>
+            <option value="Khác">Khác</option>
+          </select>
+        </label>
+        <button class="secondary" id="btnLoadList">↻ Tải danh sách</button>
+      </div>
+      <div id="savedList" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
+
+      <details>
+        <summary>Hướng dẫn tạo Google Sheet + Apps Script (làm 1 lần)</summary>
+        <div class="doc">
+          1. Tạo một Google Sheet mới (hoặc dùng sheet có sẵn) tại <code>sheets.google.com</code>.<br>
+          2. Vào menu <code>Tiện ích mở rộng → Apps Script</code>.<br>
+          3. Xoá code mẫu trong <code>Code.gs</code>, dán đoạn code bên dưới vào, rồi lưu (Ctrl+S).<br>
+          4. Bấm <code>Triển khai → Triển khai mới</code> (Deploy → New deployment) → chọn loại <code>Ứng dụng web (Web app)</code>.<br>
+          &nbsp;&nbsp;&nbsp;— Execute as: <code>Me</code><br>
+          &nbsp;&nbsp;&nbsp;— Who has access: <code>Anyone</code><br>
+          5. Bấm <code>Triển khai</code>, cấp quyền khi được hỏi (chọn tài khoản Google, bấm "Advanced" → "Go to ... (unsafe)" nếu có cảnh báo — đây là script do chính bạn tạo).<br>
+          6. Sao chép URL dạng <code>https://script.google.com/macros/s/AKfycb.../exec</code> và dán vào ô phía trên.<br>
+          7. Nếu bạn đã từng triển khai bản cũ (chỉ lưu Thời gian/Ghi chú/Mã TikZ/Lệnh GeoGebra), hãy thay code bằng bản mới bên dưới rồi vào <code>Triển khai → Quản lý bản triển khai</code>, sửa bản hiện có sang phiên bản mới nhất (không cần đổi URL). Sheet cũ vẫn dùng được — cột "ID" và "Lớp" sẽ tự thêm cho các dòng lưu mới.<br>
+          8. Mỗi lần sửa code, phải tạo bản triển khai mới hoặc vào "Quản lý bản triển khai" chọn phiên bản mới để URL áp dụng code mới nhất.<br><br>
+          <b>Code dán vào Apps Script (Code.gs):</b>
+          <textarea readonly style="height:320px; margin-top:6px; width:100%; background:#0c1626; color:#d7e2f4; border:1px solid var(--border); border-radius:8px; font-family:var(--mono); font-size:11.5px; padding:8px; line-height:1.5;" onclick="this.select()">function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('TikZ') || ss.insertSheet('TikZ');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['ID', 'Lớp', 'Tên', 'Thời gian', 'Mã TikZ', 'Lệnh GeoGebra']);
+  }
+  var data = JSON.parse(e.postData.contents);
+  var action = data.action || 'save';
+
+  if (action === 'save') {
+    var id = new Date().getTime() + '-' + Math.floor(Math.random() * 100000);
+    sheet.appendRow([
+      id, data.lop || '', data.ten || '',
+      data.timestamp || new Date().toISOString(),
+      data.tikz || '', data.ggb || ''
+    ]);
+    return respond({ status: 'ok', id: id });
+  }
+
+  if (action === 'list') {
+    var values = sheet.getDataRange().getValues();
+    var items = [];
+    for (var i = 1; i < values.length; i++) {
+      var row = values[i];
+      if (!data.lop || row[1] === data.lop) {
+        items.push({ id: String(row[0]), lop: row[1], ten: row[2], timestamp: row[3], tikz: row[4], ggb: row[5] });
+      }
+    }
+    return respond({ status: 'ok', items: items });
+  }
+
+  if (action === 'delete') {
+    var delRow = findRowById_(sheet, data.id);
+    if (delRow > -1) sheet.deleteRow(delRow);
+    return respond({ status: 'ok' });
+  }
+
+  if (action === 'update') {
+    var updRow = findRowById_(sheet, data.id);
+    if (updRow > -1) {
+      sheet.getRange(updRow, 2, 1, 5).setValues([[
+        data.lop || '', data.ten || '',
+        data.timestamp || new Date().toISOString(),
+        data.tikz || '', data.ggb || ''
+      ]]);
+    }
+    return respond({ status: 'ok' });
+  }
+
+  return respond({ status: 'error', message: 'unknown action' });
+}
+
+function findRowById_(sheet, id) {
+  var values = sheet.getDataRange().getValues();
+  for (var i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(id)) return i + 1;
+  }
+  return -1;
+}
+
+function respond(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}</textarea>
+        </div>
+      </details>
+    </div>
+
     <details>
       <summary>Phạm vi hỗ trợ &amp; mẹo dùng</summary>
       <div class="doc">
@@ -1041,8 +1166,213 @@ var EXAMPLE_TIKZ = "% Yêu cầu gói: \\usepackage{tikz} và \\usetikzlibrary{c
   var optAutoColor = $('optAutoColor'), optPointSize = $('optPointSize'), optLabelSize = $('optLabelSize'), optTextColor = $('optTextColor');
   var optAxes = $('optAxes'), optGrid = $('optGrid'), optAlgebra = $('optAlgebra');
   var pngScale = $('pngScale'), pngDpi = $('pngDpi'), pngTransparent = $('pngTransparent');
+  var sheetWebAppUrl = $('sheetWebAppUrl'), sheetNote = $('sheetNote'), sheetStatusBox = $('sheetStatusBox'),
+      btnSaveSheet = $('btnSaveSheet'), btnUpdateSheet = $('btnUpdateSheet'), btnCancelEdit = $('btnCancelEdit'),
+      editIndicator = $('editIndicator'), saveLop = $('saveLop'), browseLop = $('browseLop'),
+      btnLoadList = $('btnLoadList'), savedList = $('savedList');
 
   tikzInput.value = EXAMPLE_TIKZ;
+
+  /* ---------- Lưu / Mở mã đã lưu trên Google Sheet ---------- */
+  var editingId = null; // id của mục đang sửa (null = đang ở chế độ lưu mới)
+
+  try {
+    var savedSheetUrl = localStorage.getItem('tikzGgbSheetUrl');
+    if (savedSheetUrl) sheetWebAppUrl.value = savedSheetUrl;
+    var savedBrowseLop = localStorage.getItem('tikzGgbBrowseLop');
+    if (savedBrowseLop) browseLop.value = savedBrowseLop;
+  } catch (e) {}
+
+  function persistSheetUrl() {
+    try { localStorage.setItem('tikzGgbSheetUrl', sheetWebAppUrl.value.trim()); } catch (e) {}
+  }
+  sheetWebAppUrl.addEventListener('change', persistSheetUrl);
+  browseLop.addEventListener('change', function () {
+    try { localStorage.setItem('tikzGgbBrowseLop', browseLop.value); } catch (e) {}
+  });
+
+  function showSheetStatus(msg, isError) {
+    sheetStatusBox.textContent = msg;
+    sheetStatusBox.style.display = 'block';
+    if (isError) {
+      sheetStatusBox.style.color = 'var(--danger)';
+      sheetStatusBox.style.background = '#2a1414';
+      sheetStatusBox.style.border = '1px solid #5a2323';
+    } else {
+      sheetStatusBox.style.color = 'var(--accent2)';
+      sheetStatusBox.style.background = '#0f2a20';
+      sheetStatusBox.style.border = '1px solid #1f4d3c';
+    }
+  }
+
+  function getSheetUrl() {
+    var url = sheetWebAppUrl.value.trim();
+    if (!url) {
+      showSheetStatus('Vui lòng nhập URL Web App của Google Apps Script (xem hướng dẫn cuối thẻ này).', true);
+      return null;
+    }
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) {
+      showSheetStatus('URL có vẻ không đúng định dạng (phải dạng https://script.google.com/macros/s/.../exec).', true);
+      return null;
+    }
+    persistSheetUrl();
+    return url;
+  }
+
+  function callSheet(payload) {
+    var url = getSheetUrl();
+    if (!url) return Promise.reject(new Error('no-url'));
+    return fetch(url, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var j;
+        try { j = JSON.parse(text); } catch (e) {
+          throw new Error('Phản hồi không phải JSON hợp lệ: ' + text);
+        }
+        if (j.status !== 'ok') throw new Error(j.message || 'Yêu cầu thất bại.');
+        return j;
+      });
+  }
+
+  function enterEditMode(item) {
+    editingId = item.id;
+    saveLop.value = item.lop || 'Khác';
+    sheetNote.value = item.ten || '';
+    tikzInput.value = item.tikz || '';
+    ggbCmds.value = item.ggb || '';
+    editIndicator.style.display = 'block';
+    editIndicator.textContent = 'Đang sửa: "' + (item.ten || '(không tên)') + '" — ' + (item.lop || '');
+    btnUpdateSheet.style.display = '';
+    btnCancelEdit.style.display = '';
+    runOnGgb(ggbCmds.value.split('\n'), false);
+  }
+
+  function exitEditMode() {
+    editingId = null;
+    editIndicator.style.display = 'none';
+    btnUpdateSheet.style.display = 'none';
+    btnCancelEdit.style.display = 'none';
+  }
+
+  btnCancelEdit.addEventListener('click', exitEditMode);
+
+  btnSaveSheet.addEventListener('click', function () {
+    if (!tikzInput.value.trim()) { showSheetStatus('Chưa có mã TikZ để lưu.', true); return; }
+    var payload = {
+      action: 'save',
+      lop: saveLop.value,
+      ten: sheetNote.value.trim(),
+      timestamp: new Date().toLocaleString('vi-VN'),
+      tikz: tikzInput.value,
+      ggb: ggbCmds.value
+    };
+    btnSaveSheet.disabled = true;
+    showSheetStatus('Đang lưu…', false);
+    callSheet(payload)
+      .then(function () {
+        showSheetStatus('✓ Đã lưu mục mới vào Google Sheet (' + payload.lop + ').', false);
+        if (browseLop.value === payload.lop) loadSavedList();
+      })
+      .catch(function (err) {
+        if (err.message !== 'no-url') showSheetStatus('Lỗi khi lưu: ' + err.message, true);
+      })
+      .finally(function () { btnSaveSheet.disabled = false; });
+  });
+
+  btnUpdateSheet.addEventListener('click', function () {
+    if (!editingId) return;
+    if (!tikzInput.value.trim()) { showSheetStatus('Chưa có mã TikZ để lưu.', true); return; }
+    var payload = {
+      action: 'update',
+      id: editingId,
+      lop: saveLop.value,
+      ten: sheetNote.value.trim(),
+      timestamp: new Date().toLocaleString('vi-VN'),
+      tikz: tikzInput.value,
+      ggb: ggbCmds.value
+    };
+    btnUpdateSheet.disabled = true;
+    showSheetStatus('Đang cập nhật…', false);
+    callSheet(payload)
+      .then(function () {
+        showSheetStatus('✓ Đã cập nhật mục đã lưu.', false);
+        exitEditMode();
+        if (browseLop.value === payload.lop) loadSavedList();
+      })
+      .catch(function (err) {
+        if (err.message !== 'no-url') showSheetStatus('Lỗi khi cập nhật: ' + err.message, true);
+      })
+      .finally(function () { btnUpdateSheet.disabled = false; });
+  });
+
+  function loadSavedList() {
+    savedList.innerHTML = '<div class="hint">Đang tải…</div>';
+    callSheet({ action: 'list', lop: browseLop.value })
+      .then(function (res) { renderSavedList(res.items || []); })
+      .catch(function (err) {
+        savedList.innerHTML = '';
+        if (err.message !== 'no-url') showSheetStatus('Lỗi khi tải danh sách: ' + err.message, true);
+      });
+  }
+  btnLoadList.addEventListener('click', loadSavedList);
+
+  function renderSavedList(items) {
+    savedList.innerHTML = '';
+    if (!items.length) {
+      savedList.innerHTML = '<div class="hint">Chưa có mục nào được lưu cho ' + browseLop.value + '.</div>';
+      return;
+    }
+    items.slice().reverse().forEach(function (item) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:center; gap:8px; background:#0c1626; border:1px solid var(--border); border-radius:8px; padding:7px 9px; flex-wrap:wrap;';
+
+      var info = document.createElement('div');
+      info.style.cssText = 'flex:1; min-width:120px;';
+      info.innerHTML = '<div style="font-size:12.5px; color:var(--text); font-weight:600;">' +
+        escapeHtml(item.ten || '(không tên)') + '</div><div style="font-size:11px; color:var(--muted);">' +
+        escapeHtml(String(item.timestamp || '')) + '</div>';
+      row.appendChild(info);
+
+      var btnOpen = document.createElement('button');
+      btnOpen.className = 'secondary'; btnOpen.textContent = 'Mở';
+      btnOpen.addEventListener('click', function () {
+        tikzInput.value = item.tikz || '';
+        ggbCmds.value = item.ggb || '';
+        runOnGgb(ggbCmds.value.split('\n'), false);
+        showSheetStatus('✓ Đã mở "' + (item.ten || '(không tên)') + '".', false);
+      });
+      row.appendChild(btnOpen);
+
+      var btnEdit = document.createElement('button');
+      btnEdit.className = 'secondary'; btnEdit.textContent = 'Sửa';
+      btnEdit.addEventListener('click', function () { enterEditMode(item); });
+      row.appendChild(btnEdit);
+
+      var btnDel = document.createElement('button');
+      btnDel.className = 'ghost'; btnDel.textContent = 'Xoá';
+      btnDel.addEventListener('click', function () {
+        if (!confirm('Xoá mục "' + (item.ten || '(không tên)') + '"? Không thể hoàn tác.')) return;
+        callSheet({ action: 'delete', id: item.id })
+          .then(function () {
+            showSheetStatus('✓ Đã xoá.', false);
+            if (editingId === item.id) exitEditMode();
+            loadSavedList();
+          })
+          .catch(function (err) {
+            if (err.message !== 'no-url') showSheetStatus('Lỗi khi xoá: ' + err.message, true);
+          });
+      });
+      row.appendChild(btnDel);
+
+      savedList.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
 
   function hexToRgb(hex) {
     var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
